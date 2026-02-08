@@ -1,8 +1,9 @@
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 #[tauri::command]
 pub fn set_tray_health(app: AppHandle, health: String) {
-  let tray = match app.tray() {
+  // Get tray by the ID we created in main.rs
+  let tray = match app.tray_by_id("main") {
     Some(t) => t,
     None => {
       eprintln!("Tray not found");
