@@ -1,5 +1,6 @@
 use tauri::{AppHandle, Manager};
 use tauri::path::BaseDirectory;
+use tauri::Emitter;
 use tauri_plugin_notification::NotificationExt;
 
 fn notification_icon_string(app: &AppHandle) -> Option<String> {
@@ -19,18 +20,17 @@ fn notification_icon_string(app: &AppHandle) -> Option<String> {
 
 #[tauri::command]
 pub fn tray_notify(app: AppHandle, title: String, body: String, route: Option<String>) {
-  let icon = notification_icon_string(&app);
+  let icon = notification_icon_string(&app).unwrap_or_default();
 
-  // Show notification
   let _ = app
     .notification()
     .builder()
     .title(title)
     .body(body)
-    .icon(icon.unwrap_or_default())
+    .icon(icon)
     .show();
 
-  // Also bring app to front and navigate (best-effort)
+  // Bring app to front and navigate
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.show();
     let _ = window.set_focus();
