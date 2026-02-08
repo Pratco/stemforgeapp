@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+
 import AuthGate from "./components/AuthGate";
 import ProjectBrowser from "./components/ProjectBrowser";
 
@@ -30,6 +32,18 @@ export default function App() {
 
   useEffect(() => {
     connect();
+  }, []);
+
+  // 🔔 Listen for Tauri "navigate" events from Rust
+  useEffect(() => {
+    const unlistenPromise = listen<View>("navigate", (event) => {
+      const target = event.payload;
+      setView(target);
+    });
+
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten());
+    };
   }, []);
 
   function onAuthed() {
