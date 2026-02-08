@@ -1,8 +1,9 @@
 use tauri::{AppHandle, Manager};
 use tauri::path::BaseDirectory;
+use tauri::image::Image;
 use std::fs;
 
-fn tray_icon_bytes(app: &AppHandle, name: &str) -> Option<Vec<u8>> {
+fn tray_icon_image(app: &AppHandle, name: &str) -> Option<Image<'static>> {
   let icons_dir = app
     .path()
     .resolve("icons", BaseDirectory::Resource)
@@ -15,7 +16,9 @@ fn tray_icon_bytes(app: &AppHandle, name: &str) -> Option<Vec<u8>> {
   };
 
   let path = icons_dir.join(filename);
-  fs::read(path).ok()
+  let bytes = fs::read(path).ok()?;
+
+  Image::from_bytes(bytes).ok()
 }
 
 #[tauri::command]
@@ -35,9 +38,9 @@ pub fn set_tray_health(app: AppHandle, health: String) {
     _ => "tray_yellow",
   };
 
-  if let Some(bytes) = tray_icon_bytes(&app, icon_name) {
-    let _ = tray.set_icon(Some(bytes));
+  if let Some(image) = tray_icon_image(&app, icon_name) {
+    let _ = tray.set_icon(Some(image));
   } else {
-    eprintln!("Failed to load tray icon bytes");
+    eprintln!("Failed to load tray icon image");
   }
 }
