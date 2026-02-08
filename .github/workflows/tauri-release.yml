@@ -1,4 +1,4 @@
-name: Build & Release Tauri
+name: Build & Release Tauri (Unsigned Windows)
 
 on:
   push:
@@ -60,9 +60,9 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
-      # 🍎 Import Apple cert
+      # 🍎 macOS cert import (keep if you want signed mac builds)
       - name: Import Apple Certificate
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && secrets.APPLE_CERT_BASE64 != ''
         run: |
           echo "${{ secrets.APPLE_CERT_BASE64 }}" | base64 --decode > cert.p12
           security create-keychain -p "" build.keychain
@@ -71,24 +71,12 @@ jobs:
           security default-keychain -s build.keychain
           security unlock-keychain -p "" build.keychain
 
-      # 🪟 Import Windows cert
-      - name: Import Windows Certificate
-        if: matrix.os == 'windows-latest'
-        shell: powershell
-        run: |
-          echo "${{ secrets.WINDOWS_CERT_BASE64 }}" > cert.txt
-          certutil -decode cert.txt cert.pfx
-          Import-PfxCertificate -FilePath cert.pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String "${{ secrets.WINDOWS_CERT_PASSWORD }}" -AsPlainText -Force)
-
       - name: Install frontend deps
         run: npm install
 
-      - name: Build & Sign Tauri
+      - name: Build Tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        with:
-          args: --target ${{ matrix.target }}
-
+          APPLE_TEAM_ID: ${{ secrets.APP
