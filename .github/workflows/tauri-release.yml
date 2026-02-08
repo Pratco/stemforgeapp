@@ -1,19 +1,34 @@
-name: Build and Release STEMFORGE
+name: Build Tauri Installers
 
 on:
   push:
     tags:
-      - "v*.*.*"
-
-permissions:
-  contents: write
+      - "v*.*.*"   # Build when you push a version tag like v1.0.0
+  workflow_dispatch: {} # Allow manual run from GitHub UI
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          # Windows
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+          - platform: windows-latest
+            target: i686-pc-windows-msvc
+          - platform: windows-latest
+            target: aarch64-pc-windows-msvc
+
+          # macOS
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+
+          # Linux (universal-ish via AppImage + deb/rpm)
+          - platform: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
 
     runs-on: ${{ matrix.platform }}
 
@@ -26,28 +41,30 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Rust
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-      - name: Install dependencies (Linux only)
+      - name: Install Linux deps
         if: matrix.platform == 'ubuntu-latest'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
 
       - name: Install frontend deps
-        working-directory: desktop
         run: npm install
 
-      - name: Build Tauri app
-        working-directory: desktop
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        run: npx tauri build
-
-      - name: Upload artifacts to release
-        uses: softprops/action-gh-release@v2
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: |
-            desktop/src-tauri/target/release/bundle/**/*
+          args: --target ${{ matrix.target }}
 
