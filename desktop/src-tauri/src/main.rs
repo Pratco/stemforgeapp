@@ -8,10 +8,29 @@ use crate::mdns::mdns_discover;
 use crate::tray_health::set_tray_health;
 use crate::tray_notify::tray_notify;
 
+use tauri::{Manager};
+use tauri::tray::TrayIconBuilder;
+
 fn main() {
   tauri::Builder::default()
     .plugin(tauri_plugin_notification::init())
     .plugin(tauri_plugin_updater::Builder::new().build())
+    .setup(|app| {
+      // Create the system tray with id "main"
+      let icon = app
+        .default_window_icon()
+        .cloned()
+        .expect("No default window icon");
+
+      TrayIconBuilder::new()
+        .id("main") // <-- IMPORTANT: this must match tray_by_id("main")
+        .icon(icon)
+        .tooltip("STEMFORGE")
+        .build(app)
+        .expect("failed to create tray icon");
+
+      Ok(())
+    })
     .invoke_handler(tauri::generate_handler![
       mdns_discover,
       set_tray_health,
