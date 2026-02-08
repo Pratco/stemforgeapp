@@ -8,7 +8,6 @@ use crate::mdns::mdns_discover;
 use crate::tray_health::set_tray_health;
 use crate::tray_notify::tray_notify;
 
-use tauri::Manager;
 use tauri::tray::TrayIconBuilder;
 
 fn main() {
@@ -21,8 +20,9 @@ fn main() {
         .cloned()
         .expect("No default window icon");
 
-      // Create tray with id "main"
-      TrayIconBuilder::new("main", icon)
+      TrayIconBuilder::new()
+        .id("main")
+        .icon(icon)
         .tooltip("STEMFORGE")
         .build(app)
         .expect("failed to create tray icon");
