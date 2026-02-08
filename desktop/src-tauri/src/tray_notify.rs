@@ -1,59 +1,43 @@
 use tauri::{AppHandle, Manager};
 use tauri::path::BaseDirectory;
-use tauri_plugin_notification::NotificationExt;
-use std::path::PathBuf;
+use std::fs;
 
-fn notification_icon_path(app: &AppHandle) -> PathBuf {
+fn tray_icon_bytes(app: &AppHandle, name: &str) -> Option<Vec<u8>> {
   let icons_dir = app
     .path()
     .resolve("icons", BaseDirectory::Resource)
-    .expect("failed to resolve icons dir");
+    .ok()?;
 
   let filename = if cfg!(target_os = "windows") {
-    "icon.ico"
+    format!("{name}.ico")
   } else {
-    "icon.png"
+    format!("{name}.png")
   };
 
-  icons_dir.join(filename)
+  let path = icons_dir.join(filename);
+  fs::read(path).ok()
 }
 
 #[tauri::command]
-pub fn tray_notify(app: AppHandle, title: String, body: String, route: Option<String>) {
-  let icon_path = notification_icon_path(&app);
+pub fn set_tray_health(app: AppHandle, health: String) {
+  let tray = match app.tray_by_id("main") {
+    Some(t) => t,
+    None => {
+      eprintln!("Tray not found");
+      return;
+    }
+  };
 
-  // Clone what we need inside the click handler
-  let app_handle = app.clone();
-  let route_to_open = route.unwrap_or_else(|| "/".to_string());
+  let icon_name = match health.as_str() {
+    "green" => "tray_green",
+    "yellow" => "tray_yellow",
+    "red" => "tray_red",
+    _ => "tray_yellow",
+  };
 
-  let result = app
-    .notification()
-    .builder()
-    .title(title)
-    .body(body)
-    .icon(icon_path)
-    .on_click(move || {
-      // Show and focus the main window
-      if let Some(window) = app_handle.get_window("main") {
-        let _ = window.show();
-        let _ = window.set_focus();
-
-        // Navigate to a specific page inside your app
-        // This assumes your frontend listens for this event
-        let _ = window.emit("navigate", route_to_open.clone());
-      }
-
-      // macOS: bounce the Dock icon to draw attention
-      #[cfg(target_os = "macos")]
-      {
-        use tauri::AppHandle;
-        // Tauri v2 provides a dock API
-        let _ = app_handle.dock().bounce();
-      }
-    })
-    .show();
-
-  if let Err(err) = result {
-    eprintln!("Failed to show notification: {err}");
+  if let Some(bytes) = tray_icon_bytes(&app, icon_name) {
+    let _ = tray.set_icon(Some(bytes));
+  } else {
+    eprintln!("Failed to load tray icon bytes");
   }
 }
