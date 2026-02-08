@@ -1,10 +1,12 @@
 use tauri::{AppHandle, Manager};
+use tauri::image::Image;
+use tauri::path::BaseDirectory;
 use std::path::PathBuf;
 
 fn tray_icon_path(app: &AppHandle, name: &str) -> PathBuf {
-    let base = app
+    let icons_dir = app
         .path()
-        .resolve("icons", tauri::path::BaseDirectory::Resource)
+        .resolve("icons", BaseDirectory::Resource)
         .expect("failed to resolve icons dir");
 
     let filename = if cfg!(target_os = "windows") {
@@ -13,22 +15,34 @@ fn tray_icon_path(app: &AppHandle, name: &str) -> PathBuf {
         format!("{name}.png")
     };
 
-    base.join(filename)
+    icons_dir.join(filename)
 }
 
-pub fn set_tray_health(app: &AppHandle, status: &str) {
-    let tray = app.tray_by_id("main").expect("tray not found");
+#[tauri::command]
+pub fn set_tray_health(app: AppHandle, health: String) {
+    let tray = match app.tray_by_id("main") {
+        Some(t) => t,
+        None => {
+            eprintln!("Tray not found");
+            return;
+        }
+    };
 
-    let icon_name = match status {
+    let icon_name = match health.as_str() {
         "green" => "tray_green",
         "yellow" => "tray_yellow",
         "red" => "tray_red",
         _ => "tray_yellow",
     };
 
-    let path = tray_icon_path(app, icon_name);
+    let path = tray_icon_path(&app, icon_name);
 
-    let _ = tray.set_icon(Some(
-        tauri::image::Image::from_path(path).expect("failed to load tray icon"),
-    ));
+    match Image::from_path(path) {
+        Ok(image) => {
+            let _ = tray.set_icon(Some(image));
+        }
+        Err(err) => {
+            eprintln!("Failed to load tray icon: {err}");
+        }
+    }
 }
