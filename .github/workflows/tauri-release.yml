@@ -1,10 +1,15 @@
-name: Build Tauri Installers
+name: Build & Release Tauri
 
 on:
   push:
     tags:
-      - "v*.*.*"   # Build when you push a version tag like v1.0.0
-  workflow_dispatch: {} # Allow manual run from GitHub UI
+      - "v*.*.*"
+      - "nightly-*"
+  workflow_dispatch: {}
+
+env:
+  TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+  TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
 jobs:
   build:
@@ -13,41 +18,38 @@ jobs:
       matrix:
         include:
           # Windows
-          - platform: windows-latest
+          - os: windows-latest
             target: x86_64-pc-windows-msvc
-          - platform: windows-latest
+          - os: windows-latest
             target: i686-pc-windows-msvc
-          - platform: windows-latest
+          - os: windows-latest
             target: aarch64-pc-windows-msvc
 
           # macOS
-          - platform: macos-latest
+          - os: macos-latest
             target: x86_64-apple-darwin
-          - platform: macos-latest
+          - os: macos-latest
             target: aarch64-apple-darwin
 
-          # Linux (universal-ish via AppImage + deb/rpm)
-          - platform: ubuntu-latest
+          # Linux
+          - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
       - name: Install Linux deps
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt update
           sudo apt install -y \
@@ -58,13 +60,35 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev
 
+      # 🍎 Import Apple cert
+      - name: Import Apple Certificate
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "${{ secrets.APPLE_CERT_BASE64 }}" | base64 --decode > cert.p12
+          security create-keychain -p "" build.keychain
+          security import cert.p12 -k build.keychain -P "${{ secrets.APPLE_CERT_PASSWORD }}" -T /usr/bin/codesign
+          security list-keychains -s build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+
+      # 🪟 Import Windows cert
+      - name: Import Windows Certificate
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          echo "${{ secrets.WINDOWS_CERT_BASE64 }}" > cert.txt
+          certutil -decode cert.txt cert.pfx
+          Import-PfxCertificate -FilePath cert.pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String "${{ secrets.WINDOWS_CERT_PASSWORD }}" -AsPlainText -Force)
+
       - name: Install frontend deps
         run: npm install
 
-      - name: Build Tauri
+      - name: Build & Sign Tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           args: --target ${{ matrix.target }}
 
