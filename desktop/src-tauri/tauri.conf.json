@@ -23,7 +23,10 @@
     "targets": "all",
     "icon": [
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "signCommand": null
+    }
   },
   "plugins": {
     "updater": {
