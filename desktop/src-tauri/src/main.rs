@@ -20,8 +20,8 @@ fn main() {
         .cloned()
         .expect("No default window icon");
 
+      // Create tray (no custom ID in Tauri v2 builder)
       TrayIconBuilder::new()
-        .id("main")
         .icon(icon)
         .tooltip("STEMFORGE")
         .build(app)
