@@ -1,43 +1,48 @@
 use tauri::{AppHandle, Manager};
 use tauri::path::BaseDirectory;
-use std::fs;
+use tauri_plugin_notification::NotificationExt;
 
-fn tray_icon_bytes(app: &AppHandle, name: &str) -> Option<Vec<u8>> {
+fn notification_icon_string(app: &AppHandle) -> Option<String> {
   let icons_dir = app
     .path()
     .resolve("icons", BaseDirectory::Resource)
     .ok()?;
 
   let filename = if cfg!(target_os = "windows") {
-    format!("{name}.ico")
+    "icon.ico"
   } else {
-    format!("{name}.png")
+    "icon.png"
   };
 
-  let path = icons_dir.join(filename);
-  fs::read(path).ok()
+  Some(icons_dir.join(filename).to_string_lossy().to_string())
 }
 
 #[tauri::command]
-pub fn set_tray_health(app: AppHandle, health: String) {
-  let tray = match app.tray_by_id("main") {
-    Some(t) => t,
-    None => {
-      eprintln!("Tray not found");
-      return;
+pub fn tray_notify(app: AppHandle, title: String, body: String, route: Option<String>) {
+  let icon = notification_icon_string(&app);
+
+  // Show notification
+  let _ = app
+    .notification()
+    .builder()
+    .title(title)
+    .body(body)
+    .icon(icon.unwrap_or_default())
+    .show();
+
+  // Also bring app to front and navigate (best-effort)
+  if let Some(window) = app.get_webview_window("main") {
+    let _ = window.show();
+    let _ = window.set_focus();
+
+    if let Some(route) = route {
+      let _ = window.emit("navigate", route);
     }
-  };
+  }
 
-  let icon_name = match health.as_str() {
-    "green" => "tray_green",
-    "yellow" => "tray_yellow",
-    "red" => "tray_red",
-    _ => "tray_yellow",
-  };
-
-  if let Some(bytes) = tray_icon_bytes(&app, icon_name) {
-    let _ = tray.set_icon(Some(bytes));
-  } else {
-    eprintln!("Failed to load tray icon bytes");
+  // macOS: bounce dock
+  #[cfg(target_os = "macos")]
+  {
+    let _ = app.dock().bounce();
   }
 }
