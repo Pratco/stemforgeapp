@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
+        platform: [windows-latest, macos-latest]
 
     runs-on: ${{ matrix.platform }}
 
@@ -29,16 +29,6 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
-
       - name: Install frontend deps
         working-directory: desktop
         run: npm install
@@ -47,16 +37,7 @@ jobs:
         working-directory: desktop
         run: npx tauri build
 
-      - name: Create GitHub Release
-        if: matrix.platform == 'ubuntu-latest'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: "STEMFORGE Studio ${{ github.ref_name }}"
-          draft: false
-          prerelease: false
-
-      - name: Upload artifacts to release
+      - name: Upload artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
