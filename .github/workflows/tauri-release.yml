@@ -40,8 +40,9 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "STEMFORGE Studio ${{ github.ref_name }}"
           releaseBody: "Automated release for ${{ github.ref_name }}"
-          draft: false
+          releaseDraft: false
           prerelease: false
+          includeUpdaterJson: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
