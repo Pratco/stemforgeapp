@@ -13,7 +13,8 @@ use tauri::tray::TrayIconBuilder;
 fn main() {
   tauri::Builder::default()
     .plugin(tauri_plugin_notification::init())
-    .plugin(tauri_plugin_updater::Builder::new().build())
+    // ❌ Updater removed:
+    // .plugin(tauri_plugin_updater::Builder::new().build())
     .setup(|app| {
       let icon = app
         .default_window_icon()
