@@ -42,7 +42,6 @@ jobs:
           releaseBody: "Automated release for ${{ github.ref_name }}"
           releaseDraft: false
           prerelease: false
-          includeRelease: true
           includeUpdaterJson: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
